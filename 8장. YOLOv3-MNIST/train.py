@@ -6,25 +6,13 @@ from config import *
 from bbox_iou import bbox_iou, bbox_giou
 from yolov3 import Create_YOLOv3
 
-NUM_CLASS          = 10
-WARMUP_EPOCHS      = 2
-
-EPOCHS             = 100
-LOGDIR             = "logs" # 학습로그를 저장할 디렉토리
-
-SAVE_BEST_ONLY     = True              # val loss가 가장 좋은 모델을 저장, True 권장
-SAVE_CHECKPOINT    = False             # True이면 학습 시 모든 유효한 모델을 저장함, False 권장
-CHECKPOINTS_FOLDER = "checkpoints"     # 모델이 저장될 디렉토리
-MODEL_NAME         = "mnist_custom"    # 저장될 모델의 이름
-SCORE_THRESHOLD    = 0.3
-
 
 if os.path.exists(LOGDIR): shutil.rmtree(LOGDIR)
 writer = tf.summary.create_file_writer(LOGDIR)
 validate_writer = tf.summary.create_file_writer(LOGDIR)
 
-trainset = DataGenerator(data_path="/mnist_train", annot_path="mnist_train.txt", class_label_path="mnist.names")
-testset = DataGenerator(data_path="/mnist_test", annot_path="mnist_test.txt", class_label_path="mnist.names")
+trainset = DataGenerator(data_path=TRAIN_DATA_PATH, annot_path=TRAIN_ANNOT_PATH, class_label_path=CLASS_LABEL_PATH)
+testset = DataGenerator(data_path=TEST_DATA_PATH, annot_path=TEST_ANNOT_PATH, class_label_path=CLASS_LABEL_PATH)
 steps_per_epoch = len(trainset)
 global_steps = tf.Variable(1, trainable=False, dtype=tf.int64)
 warmup_steps = WARMUP_EPOCHS * steps_per_epoch
