@@ -1,0 +1,2 @@
+C:\Users\kosa\Ch8_YOLOv3-MNIST\data\animal\test\01.jpg 93,41,380,386,1
+C:\Users\kosa\Ch8_YOLOv3-MNIST\data\animal\test\02.jpg 38,19,320,293,0

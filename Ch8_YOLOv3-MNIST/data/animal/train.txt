@@ -1,0 +1,6 @@
+C:\Users\kosa\Ch8_YOLOv3-MNIST\data\animal\train\01.jpg 17,34,221,386,0 226,158,407,386,1
+C:\Users\kosa\Ch8_YOLOv3-MNIST\data\animal\train\02.jpg 193,35,397,386,0 10,160,189,386,1
+C:\Users\kosa\Ch8_YOLOv3-MNIST\data\animal\train\03.jpg 86,45,305,345,0
+C:\Users\kosa\Ch8_YOLOv3-MNIST\data\animal\train\04.jpg 112,45,325,345,0
+C:\Users\kosa\Ch8_YOLOv3-MNIST\data\animal\train\05.jpg 31,77,394,351,1
+C:\Users\kosa\Ch8_YOLOv3-MNIST\data\animal\train\06.jpg 59,70,351,268,1
