@@ -3,9 +3,12 @@
 ## 교재 주문
 * https://bookk.co.kr/bookStore/646af1334222b24502d478a6
 
-## 8장 YOLOv3 MNIST 학습 모델
+## 학습된 모델
+### 8장 YOLOv3 MNIST 학습 모델
 https://drive.google.com/file/d/12c0Ke8cxJ1zx4cCzuGbQHq2UCBwS-CPb/view?usp=sharing
 
+### Mask 데이터 학습 모델
+https://drive.google.com/file/d/14MakQl0__okb8ivNp0mn9rRPdBAnbWTi/view?usp=sharing
 
 ## 교재 수정 내용
 ### 2024. 7. 1.
