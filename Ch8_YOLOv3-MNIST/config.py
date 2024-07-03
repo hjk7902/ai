@@ -7,8 +7,8 @@ YOLO_ANCHORS  = [[[10,  13], [16,   30], [33,   23]],
 STRIDES       = np.array(YOLO_STRIDES)
 ANCHORS       = (np.array(YOLO_ANCHORS).T/STRIDES).T
 
-NUM_CLASS          = 3                # 클래스 라벨의 수
-DOMAIN             = "blood"           # 데이터 도메인 이름, mnist 숫자 분류이면 mnist
+NUM_CLASS          = 10                # 클래스 라벨의 수
+DOMAIN             = "mnist"           # 데이터 도메인 이름, mnist 숫자 분류이면 mnist
 
 WARMUP_EPOCHS      = 2                 # 웜업 이폭
 EPOCHS             = 100               # 학습 횟수, 자동생성된 mnist train 데이터가 1000개면 100번정도
@@ -23,5 +23,5 @@ TRAIN_DATA_PATH    = "data/"+DOMAIN+"/train"
 TRAIN_ANNOT_PATH   = "data/"+DOMAIN+"/train.txt"
 TEST_DATA_PATH     = "data/"+DOMAIN+"/test"
 TEST_ANNOT_PATH    = "data/"+DOMAIN+"/test.txt"
-CLASS_LABEL_PATH   = "data/"+DOMAIN+"/"+DOMAIN+".names"
+CLASS_LABEL_PATH   = "data/"+DOMAIN+".names"
 

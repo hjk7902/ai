@@ -44,7 +44,7 @@ def convolutional(input_layer, filters, kernel_size,
     if bn:
         conv = BatchNormalization()(conv)
     if activate:
-        conv = layers.LeakyReLU(alpha=0.1)(conv)
+        conv = layers.LeakyReLU(0.1)(conv)
 
     return conv
 
