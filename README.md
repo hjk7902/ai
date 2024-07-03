@@ -5,10 +5,10 @@
 
 ## 학습된 모델
 ### YOLOv3 MNIST 모델
-[checkpoints_mnist.zip](https://drive.google.com/file/d/14MakQl0__okb8ivNp0mn9rRPdBAnbWTi/view?usp=sharing)
+[checkpoints_mnist.zip](https://drive.google.com/file/d/16Lzowa8Hh4ggCcGCBC1Qgf89VEI8o0WU/view?usp=sharing)
 
 ### YOLOv3 Mask 모델
-[checkpoints_mask.zip](https://drive.google.com/file/d/12c0Ke8cxJ1zx4cCzuGbQHq2UCBwS-CPb/view?usp=sharing)
+[checkpoints_mask.zip](https://drive.google.com/file/d/19udN0Q881hFrYQ-eEuXQjywFXoRFzKl0/view?usp=sharing)
 
 ## 교재 수정 내용
 ### 2024. 7. 1.
