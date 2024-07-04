@@ -16,6 +16,7 @@
  - https://javaspeicalist.co.kr -> htts://github.com/hjk7902/ai
  - YOLOv3 모델의 클래스 수가 80개일 경우 총 파라미터 개수 수정( 61,624,807-> 62,001,757)
  - 8장의 모델을 내려받는 방법을 수정했습니다.(단축주소 -> 깃허브의 README 파일 링크)
+ - 변수명 수정: train_X -> X_train, test_X -> X_test, train_y -> y_train, test_y -> y_test
 ### 2023. 10. 20.
  - 1장 2절의 인공신경망 딥러닝 모델 구현에 사용한 데이터의 종속변수를 sklearm과 keras를 이용한 모델에서 원-핫 인코딩해서 사용하지 않음
  - 텐서플로우의 코드만 원-핫 인코딩을 사용하도록 했음 
