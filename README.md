@@ -4,10 +4,10 @@
 * https://bookk.co.kr/bookStore/646af1334222b24502d478a6
 
 ## 학습된 모델
-### YOLOv3 MNIST 모델
+* YOLOv3 MNIST 모델
 [checkpoints_mnist.zip](https://drive.google.com/file/d/19udN0Q881hFrYQ-eEuXQjywFXoRFzKl0/view?usp=sharing)
 
-### YOLOv3 Mask 모델
+* YOLOv3 Mask 모델
 [checkpoints_mask.zip](https://drive.google.com/file/d/16Lzowa8Hh4ggCcGCBC1Qgf89VEI8o0WU/view?usp=sharing)
 
 ## 실시간 객체탐지 예제코드를 실행하려면 tensowflow 2.14 이하 버전이 있어야 합니다.
