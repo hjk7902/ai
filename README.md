@@ -3,32 +3,13 @@
 ## 교재 주문
 * https://bookk.co.kr/bookStore/646af1334222b24502d478a6
 
-## 학습된 모델
-* YOLOv3 MNIST 모델
-[checkpoints_mnist.zip](https://drive.google.com/file/d/19udN0Q881hFrYQ-eEuXQjywFXoRFzKl0/view?usp=sharing)
-
-* YOLOv3 Mask 모델
-[checkpoints_mask.zip](https://drive.google.com/file/d/16Lzowa8Hh4ggCcGCBC1Qgf89VEI8o0WU/view?usp=sharing)
-
-## 실시간 객체탐지 예제코드를 실행하려면 tensowflow 2.14 이하 버전이 있어야 합니다.
-아나콘다를 2022년 버전을 설치하거나... 다음 절차를 따르세요.
-
-### 1. 가상환경 추가
-* conda create -n tf2.14 python=3.11
-* conda activate tf2.14
-
-### 2. 주피터노트북 ipykernel 추가
-* pip install ipykernel
-* ipython kernel install --name=tf2.14 --user
-
-### 3. 라이브러리 설치
-* python -m pip install pip==23.0   <- pip 버전을 다운그래이드 해야 텐서플로우 2.14 설치 가능
-* pip install tensorflow==2.14 
-* pip install opencv-python scikit-learn pandas nltk ipywidgets tqdm datasets
-* pip install "numpy<2.0" --user
+## tensowflow 2.20 버전
+### 라이브러리 설치
+* pip install -r requirements.txt
 
   
 ## 교재 수정 내용
+
 ### 2024. 7. 1.
  - 교재의 javaspecialist.co.kr에 있는 자료를 모두 깃허브로 옮김
  - https://javaspeicalist.co.kr -> htts://github.com/hjk7902/ai
@@ -56,3 +37,28 @@
 ### 2022. 10. 1.
  - 쌍점(:) 앞에 공백 없앰
  - 5장 마지막 빈 페이지에 인공신경망 요약정리 그림 삽입
+
+----------------------------------------------------------------------------------
+## tensowflow 2.14 이하 버전
+
+### 1. 가상환경 추가 
+* conda create -n tf2.14 python=3.11
+* conda activate tf2.14
+
+### 2. 주피터노트북 ipykernel 추가 
+* pip install ipykernel
+* ipython kernel install --name=tf2.14 --user
+
+### 3. 라이브러리 설치
+* python -m pip install pip==23.0   <- pip 버전을 다운그래이드 해야 텐서플로우 2.14 설치 가능
+* pip install tensorflow==2.14 
+* pip install opencv-python scikit-learn pandas nltk ipywidgets tqdm datasets
+* pip install "numpy<2.0" --user
+
+### 4. 학습된 모델
+* YOLOv3 MNIST 모델(tf 2.14이하 버전)
+[checkpoints_mnist.zip](https://drive.google.com/file/d/19udN0Q881hFrYQ-eEuXQjywFXoRFzKl0/view?usp=sharing)
+
+* YOLOv3 Mask 모델(tf 2.14이하 버전)
+[checkpoints_mask.zip](https://drive.google.com/file/d/16Lzowa8Hh4ggCcGCBC1Qgf89VEI8o0WU/view?usp=sharing)
+
