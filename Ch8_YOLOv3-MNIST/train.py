@@ -3,31 +3,17 @@ import shutil
 import tensorflow as tf
 from data import DataGenerator
 from config import *
-from bbox_iou import bbox_iou, bbox_giou
+from bbox_iou import bbox_iou
 from yolov3 import Create_YOLOv3
 
+if os.path.exists(LOGDIR): 
+    shutil.rmtree(LOGDIR)
 
-if os.path.exists(LOGDIR): shutil.rmtree(LOGDIR)
 writer = tf.summary.create_file_writer(LOGDIR)
 validate_writer = tf.summary.create_file_writer(LOGDIR)
 
-trainset = DataGenerator(data_path=TRAIN_DATA_PATH, annot_path=TRAIN_ANNOT_PATH, class_label_path=CLASS_LABEL_PATH)
-testset = DataGenerator(data_path=TEST_DATA_PATH, annot_path=TEST_ANNOT_PATH, class_label_path=CLASS_LABEL_PATH)
-steps_per_epoch = len(trainset)
-global_steps = tf.Variable(1, trainable=False, dtype=tf.int64)
-warmup_steps = WARMUP_EPOCHS * steps_per_epoch
-total_steps = EPOCHS * steps_per_epoch
 
-optimizer = tf.keras.optimizers.Adam()
-
-gpus = tf.config.experimental.list_physical_devices('GPU')
-print(f'GPUs {gpus}')
-if len(gpus) > 0:
-    try: tf.config.experimental.set_memory_growth(gpus[0], True)
-    except RuntimeError: pass
-
-
-def compute_loss(pred, conv, label, bboxes, i=0, iou_loss_thresh=0.45):
+def compute_loss(pred, conv, label, bboxes, i=0, iou_loss_thresh=IOU_THRESHOLD):
     conv_shape  = tf.shape(conv)
     batch_size  = conv_shape[0]
     output_size = conv_shape[1]
@@ -44,14 +30,14 @@ def compute_loss(pred, conv, label, bboxes, i=0, iou_loss_thresh=0.45):
     respond_bbox  = label[:, :, :, :, 4:5]
     label_prob    = label[:, :, :, :, 5:]
 
-    giou = tf.expand_dims(bbox_giou(pred_xywh, label_xywh), axis=-1)
+    giou = tf.expand_dims(bbox_iou(pred_xywh, label_xywh, method=IOU_METHOD), axis=-1)
     input_size = tf.cast(input_size, tf.float32)
 
     bbox_loss_scale = 2.0 - 1.0 * label_xywh[:, :, :, :, 2:3] * label_xywh[:, :, :, :, 3:4] / (input_size ** 2)
-    giou_loss = respond_bbox * bbox_loss_scale * (1 - giou)
+    iou_loss = respond_bbox * bbox_loss_scale * (1 - giou)
 
-    # bbox_iou
-    iou = bbox_iou(pred_xywh[:, :, :, :, np.newaxis, :], bboxes[:, np.newaxis, np.newaxis, np.newaxis, :, :])
+    # iou_xywh
+    iou = bbox_iou(pred_xywh[:, :, :, :, np.newaxis, :], bboxes[:, np.newaxis, np.newaxis, np.newaxis, :, :], method=IOU_METHOD)
     # 실제 상자에서 가장 큰 예측값을 갖는 상자로 IoU 값 찾기
     max_iou = tf.expand_dims(tf.reduce_max(iou, axis=-1), axis=-1)
 
@@ -70,121 +56,175 @@ def compute_loss(pred, conv, label, bboxes, i=0, iou_loss_thresh=0.45):
 
     prob_loss = respond_bbox * tf.nn.sigmoid_cross_entropy_with_logits(labels=label_prob, logits=conv_raw_prob)
 
-    giou_loss = tf.reduce_mean(tf.reduce_sum(giou_loss, axis=[1,2,3,4]))
+    iou_loss = tf.reduce_mean(tf.reduce_sum(iou_loss, axis=[1,2,3,4]))
     conf_loss = tf.reduce_mean(tf.reduce_sum(conf_loss, axis=[1,2,3,4]))
     prob_loss = tf.reduce_mean(tf.reduce_sum(prob_loss, axis=[1,2,3,4]))
 
-    return giou_loss, conf_loss, prob_loss
+    return iou_loss, conf_loss, prob_loss
 
 
 def train_step(model, image_data, target, lr_init=1e-4, lr_end=1e-6):
     with tf.GradientTape() as tape:
         pred_result = model(image_data, training=True)
-        giou_loss=conf_loss=prob_loss=0
 
-        # optimizing process
-        grid = 3
-        for i in range(grid):
-            conv, pred = pred_result[i*2], pred_result[i*2+1]
+        iou_loss = conf_loss = prob_loss = 0.0
+
+        for i in range(3):
+            conv = pred_result[i * 2]       # raw conv
+            pred = pred_result[i * 2 + 1]   # decoded pred
+
             loss_items = compute_loss(pred, conv, *target[i], i)
-            giou_loss += loss_items[0]
+
+            iou_loss += loss_items[0]
             conf_loss += loss_items[1]
             prob_loss += loss_items[2]
 
-        total_loss = giou_loss + conf_loss + prob_loss
+        total_loss = iou_loss + conf_loss + prob_loss
 
-        gradients = tape.gradient(total_loss, model.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    gradients = tape.gradient(total_loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-        # 학습률 갱신
-        # about warmup: https://arxiv.org/pdf/1812.01187.pdf
-        global_steps.assign_add(1)
-        if global_steps < warmup_steps:
-            lr = global_steps / warmup_steps * lr_init
-        else:
-            lr = lr_end + 0.5 * (lr_init - lr_end)*(
-                (1 + tf.cos((global_steps - warmup_steps) / (total_steps - warmup_steps) * np.pi)))
-        optimizer.lr.assign(lr.numpy())
+    # learning rate update (당신 코드 그대로)
+    global_steps.assign_add(1)
+    if global_steps < warmup_steps:
+        lr = global_steps / warmup_steps * lr_init
+    else:
+        lr = lr_end + 0.5 * (lr_init - lr_end) * (
+            1 + tf.cos((global_steps - warmup_steps) /
+                       (total_steps - warmup_steps) * np.pi)
+        )
 
-        # Loss를 log에 저장
-        with writer.as_default():
-            tf.summary.scalar("lr", optimizer.lr, step=global_steps)
-            tf.summary.scalar("loss/total_loss", total_loss, step=global_steps)
-            tf.summary.scalar("loss/giou_loss", giou_loss, step=global_steps)
-            tf.summary.scalar("loss/conf_loss", conf_loss, step=global_steps)
-            tf.summary.scalar("loss/prob_loss", prob_loss, step=global_steps)
-        writer.flush()
-        
-    return global_steps.numpy(), optimizer.lr.numpy(), giou_loss.numpy(), conf_loss.numpy(), prob_loss.numpy(), total_loss.numpy()
+    optimizer.learning_rate.assign(lr)
+
+    return (
+        global_steps.numpy(),
+        optimizer.learning_rate.numpy(),
+        iou_loss.numpy(),
+        conf_loss.numpy(),
+        prob_loss.numpy(),
+        total_loss.numpy(),
+    )
 
 
 def validate_step(model, image_data, target):
     with tf.GradientTape() as tape:
         pred_result = model(image_data, training=False)
-        giou_loss=conf_loss=prob_loss=0
+        iou_loss = conf_loss = prob_loss = 0 
 
-        # optimizing process
         grid = 3 
         for i in range(grid):
             conv, pred = pred_result[i*2], pred_result[i*2+1]
             loss_items = compute_loss(pred, conv, *target[i], i)
-            giou_loss += loss_items[0]
+            iou_loss += loss_items[0]
             conf_loss += loss_items[1]
             prob_loss += loss_items[2]
 
-        total_loss = giou_loss + conf_loss + prob_loss
-        
-    return giou_loss.numpy(), conf_loss.numpy(), prob_loss.numpy(), total_loss.numpy()
+        total_loss = iou_loss + conf_loss + prob_loss
+
+    return iou_loss.numpy(), conf_loss.numpy(), prob_loss.numpy(), total_loss.numpy()
+
+
+trainset = DataGenerator(data_path="dataset/mnist_train",
+                         annot_path="dataset/mnist_train.txt",
+                         class_label_path="dataset/mnist.names")
+testset = DataGenerator(data_path="dataset/mnist_test", 
+                        annot_path="dataset/mnist_test.txt",
+                        class_label_path="dataset/mnist.names")
+steps_per_epoch = len(trainset)
+global_steps = tf.Variable(1, trainable=False, dtype=tf.int64) 
+warmup_steps = WARMUP_EPOCHS * steps_per_epoch
+total_steps = EPOCHS * steps_per_epoch
+
+optimizer = tf.keras.optimizers.Adam()
 
 
 def main():
     yolo = Create_YOLOv3(num_class=NUM_CLASS, train_mode=True)
 
-    best_val_loss = 1000 # should be large at start
-    save_directory = os.path.join(CHECKPOINTS_FOLDER, MODEL_NAME)
+    best_val_loss = float("inf")
+    os.makedirs(CHECKPOINTS_FOLDER, exist_ok=True)
 
     for epoch in range(EPOCHS):
-        for image_data, target in trainset:
+        for step, (image_data, target) in enumerate(trainset):
             results = train_step(yolo, image_data, target)
-            cur_step = results[0]%steps_per_epoch
-            print("epoch:{:2.0f} step:{:5.0f}/{}, lr:{:.6f}, giou_loss:{:7.2f}, conf_loss:{:7.2f}, prob_loss:{:7.2f}, total_loss:{:7.2f}"
-                  .format(epoch, cur_step, steps_per_epoch, results[1], results[2], results[3], results[4], results[5]))
+            cur_step = step + 1
+
+            print(
+                f"epoch:{epoch:3d} "
+                f"step:{cur_step:5d}/{steps_per_epoch}, "
+                f"lr:{results[1]:.6f}, "
+                f"iou_loss:{results[2]:7.2f}, "
+                f"conf_loss:{results[3]:7.2f}, "
+                f"prob_loss:{results[4]:7.2f}, "
+                f"total_loss:{results[5]:7.2f}", end='\r'
+            )
 
         if len(testset) == 0:
-            print("configure TEST options to validate model")
-            yolo.save_weights(os.path.join(CHECKPOINTS_FOLDER, MODEL_NAME))
+            print("No validation set. Saving last model.")
+
+            last_path = os.path.join(
+                CHECKPOINTS_FOLDER,
+                f"{MODEL_NAME}_epoch_{epoch:03d}{MODEL_EXTENSION}"
+            )
+            yolo.save_weights(last_path)
             continue
-        
+
         count = 0
-        giou_val, conf_val, prob_val, total_val = 0, 0, 0, 0
-        
+        iou_val = conf_val = prob_val = total_val = 0.0
+
         for image_data, target in testset:
             results = validate_step(yolo, image_data, target)
             count += 1
-            giou_val += results[0]
+            iou_val += results[0]
             conf_val += results[1]
             prob_val += results[2]
             total_val += results[3]
-            
-        # validation loss 저장
+
+        iou_val /= count
+        conf_val /= count
+        prob_val /= count
+        total_val /= count
+
         with validate_writer.as_default():
-            tf.summary.scalar("validate_loss/total_val", total_val/count, step=epoch)
-            tf.summary.scalar("validate_loss/giou_val", giou_val/count, step=epoch)
-            tf.summary.scalar("validate_loss/conf_val", conf_val/count, step=epoch)
-            tf.summary.scalar("validate_loss/prob_val", prob_val/count, step=epoch)
+            tf.summary.scalar("validate_loss/total", total_val, step=epoch)
+            tf.summary.scalar("validate_loss/iou", iou_val, step=epoch)
+            tf.summary.scalar("validate_loss/conf", conf_val, step=epoch)
+            tf.summary.scalar("validate_loss/prob", prob_val, step=epoch)
         validate_writer.flush()
-            
-        print("\n\ngiou_val_loss:{:7.2f}, conf_val_loss:{:7.2f}, prob_val_loss:{:7.2f}, total_val_loss:{:7.2f}\n\n".
-              format(giou_val/count, conf_val/count, prob_val/count, total_val/count))
 
-        if SAVE_CHECKPOINT and not SAVE_BEST_ONLY:
-            save_directory = os.path.join(CHECKPOINTS_FOLDER, MODEL_NAME+"_val_loss_{:7.2f}".format(total_val/count))
-            yolo.save_weights(save_directory)
-        if SAVE_BEST_ONLY:
-            if(best_val_loss>total_val/count):
-                yolo.save_weights(save_directory)
-                best_val_loss = total_val/count
-                
+        print(
+            f"\n[Epoch {epoch:03d}] "
+            f"iou:{iou_val:.2f}, conf:{conf_val:.2f}, "
+            f"prob:{prob_val:.2f}, total:{total_val:.2f}"
+        )
 
-if __name__=="__main__":
+        if SAVE_CHECKPOINT:
+            epoch_path = os.path.join(
+                CHECKPOINTS_FOLDER,
+                f"{MODEL_NAME}_epoch_{epoch:03d}_val_{total_val:.2f}{MODEL_EXTENSION}"
+            )
+            yolo.save_weights(epoch_path)
+
+        if SAVE_BEST_ONLY and total_val < best_val_loss:
+            best_val_loss = total_val
+            best_path = os.path.join(
+                CHECKPOINTS_FOLDER,
+                f"{MODEL_NAME}_best{MODEL_EXTENSION}"
+            )
+            yolo.save_weights(best_path)
+
+            print(f"Best model updated (val_loss={best_val_loss:.2f})")
+
+
+if __name__ == "__main__":
+    gpus = tf.config.list_physical_devices('GPU')
+    print("GPUs:", gpus)
+
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError as e:
+            print(e)
+
     main()

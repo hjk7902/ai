@@ -34,6 +34,7 @@ def postprocess_boxes(pred_bbox, original_image, input_size, score_threshold):
     # 4. discard some invalid boxes
     bboxes_scale = np.sqrt(np.multiply.reduce(pred_coor[:, 2:4] - pred_coor[:, 0:2], axis=-1))
     scale_mask = np.logical_and((valid_scale[0] < bboxes_scale), (bboxes_scale < valid_scale[1]))
+    scale_mask = np.logical_and(scale_mask, ~invalid_mask)
 
     # 5. discard boxes with low scores
     classes = np.argmax(pred_prob, axis=-1)
@@ -45,60 +46,8 @@ def postprocess_boxes(pred_bbox, original_image, input_size, score_threshold):
     return np.concatenate([coors, scores[:, np.newaxis], classes[:, np.newaxis]], axis=-1)
 
 
-def bboxes_iou(boxes1, boxes2):
-    boxes1 = np.array(boxes1)
-    boxes2 = np.array(boxes2)
-
-    boxes1_area = (boxes1[..., 2] - boxes1[..., 0]) * (boxes1[..., 3] - boxes1[..., 1])
-    boxes2_area = (boxes2[..., 2] - boxes2[..., 0]) * (boxes2[..., 3] - boxes2[..., 1])
-
-    left_up       = np.maximum(boxes1[..., :2], boxes2[..., :2])
-    right_down    = np.minimum(boxes1[..., 2:], boxes2[..., 2:])
-
-    inter_section = np.maximum(right_down - left_up, 0.0)
-    inter_area    = inter_section[..., 0] * inter_section[..., 1]
-    union_area    = boxes1_area + boxes2_area - inter_area
-    ious          = np.maximum(1.0 * inter_area / union_area, np.finfo(np.float32).eps)
-
-    return ious
-
-
-def nms(bboxes, iou_threshold, sigma=0.3, method='nms'):
-    classes_in_img = list(set(bboxes[:, 5]))
-    best_bboxes = []
-
-    for cls in classes_in_img:
-        cls_mask = (bboxes[:, 5] == cls)
-        cls_bboxes = bboxes[cls_mask]
-        # 1. 경계 상자의 개수가 0보다 큰지 확인
-        while len(cls_bboxes) > 0:
-            # 2. 점수 순서 A에 따라 가장 높은 점수를 갖는 경계 상자를 선택
-            max_ind = np.argmax(cls_bboxes[:, 4])
-            best_bbox = cls_bboxes[max_ind]
-            best_bboxes.append(best_bbox)
-            cls_bboxes = np.concatenate([cls_bboxes[: max_ind], cls_bboxes[max_ind + 1:]])
-            # 3. 경계 상자 A를 계산하고 경계 상자의 모든 iou를 계산하고 iou 값이 임계값보다 높은 경계 상자를 제거
-            iou = bboxes_iou(best_bbox[np.newaxis, :4], cls_bboxes[:, :4])
-            weight = np.ones((len(iou),), dtype=np.float32)
-
-            assert method in ['nms', 'soft-nms']
-
-            if method == 'nms':
-                iou_mask = iou > iou_threshold
-                weight[iou_mask] = 0.0
-
-            if method == 'soft-nms':
-                weight = np.exp(-(1.0 * iou ** 2 / sigma))
-
-            cls_bboxes[:, 4] = cls_bboxes[:, 4] * weight
-            score_mask = cls_bboxes[:, 4] > 0.
-            cls_bboxes = cls_bboxes[score_mask]
-
-    return best_bboxes
-	
-
-def draw_bbox(image, bboxes, class_names, 
-              show_label=True, show_confidence=True, Text_colors=(0, 0, 0),
+def draw_bbox(image, bboxes, class_names, show_label=True, 
+              show_confidence=True, Text_colors=(0, 0, 0),
               rectangle_colors='', tracking=False):
     image_h, image_w, _ = image.shape
     num_class = len(class_names)
@@ -115,6 +64,9 @@ def draw_bbox(image, bboxes, class_names,
         coor = np.array(bbox[:4], dtype=np.int32)
         score = bbox[4]
         class_ind = int(bbox[5])
+        if class_ind >= len(class_names):
+            continue
+
         bbox_color = rectangle_colors if rectangle_colors != '' else colors[class_ind]
         bbox_thick = int(0.6 * (image_h + image_w) / 1000)
         if bbox_thick < 1: bbox_thick = 1
@@ -143,8 +95,9 @@ def draw_bbox(image, bboxes, class_names,
             (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_COMPLEX_SMALL,
                                                                   fontScale, thickness=bbox_thick)
             # 텍스트를 출력할 채워진 사각형
-            cv2.rectangle(image, (x1, y1), (x1 + text_width, y1 - text_height - baseline), bbox_color,
-                          thickness=cv2.FILLED)
+            cv2.rectangle(image, (x1, y1), 
+                          (x1 + text_width, y1 - text_height - baseline), 
+                          bbox_color, thickness=cv2.FILLED)
 
             # 사각형위에 텍스트 출력
             cv2.putText(image, label, (x1, y1 - 4), cv2.FONT_HERSHEY_COMPLEX_SMALL,

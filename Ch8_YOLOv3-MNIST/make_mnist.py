@@ -14,11 +14,6 @@ IMAGE_SIZE_COUNT = [3, 6, 3]
 # 크기(small, medium, big)별 배율
 IMAGE_SIZE_RATIOS = [[0.5, 0.8], [1., 1.5, 2.], [3., 4.]]
 
-from tensorflow.keras.datasets import mnist
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
-
-x_train = 255 - x_train
-x_test = 255 - x_test
 
 def compute_iou(box1, box2):
     A1 = (box1[2] - box1[0])*(box1[3] - box1[1])
@@ -37,38 +32,50 @@ def make_image(data, image, label, ratio=1):
     output = data[0]
     boxes = data[1]
     labels = data[2]
-    if(len(image.shape)==2):
+
+    if(len(image.shape)==2): # 회색조 이미지이면 컬러로 변환 
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
+    # 이미지의 크기 변환 
     image = cv2.resize(image, (int(28*ratio), int(28*ratio)))
-    h, w, c = image.shape
-
-    while True:
+    h, w, c = image.shape # 크기 변환된 이미지 높이,너비,채널 
+ 
+    # 이전에 추가된 경계 상자와 겹치지 않는 상자를 추가 
+    while True: 
+        # 이미지가 추가될 임의 좌표를 생성 
         xmin = np.random.randint(0, SIZE-w, 1)[0]
         ymin = np.random.randint(0, SIZE-h, 1)[0]
         xmax = xmin + w
         ymax = ymin + h
-        box = [xmin, ymin, xmax, ymax]
+        box = [xmin, ymin, xmax, ymax] # 좌/상, 우/하 좌표 
 
+        # 이전에 추가된 박스와 새로 추가될 박스의 IoU를 계산 
         iou = [compute_iou(box, b) for b in boxes]
-        if max(iou) < 0.02:
+        if max(iou) < 0.02: # IoU가 2% 미만일때만 추가함 
             boxes.append(box)
             labels.append(label)
-            break
-
+            break 
+ 
+    # 출력 이미지에 새로운 이미지를 더함 
     for i in range(w):
         for j in range(h):
             x = xmin + i
             y = ymin + j
             output[y][x] = image[j][i]
-
+ 
     return output
-    
-    
+ 
+ 
 def main():
+    from tensorflow.keras.datasets import mnist
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+
+    x_train = 255 - x_train
+    x_test = 255 - x_test
+    
     for file in ['train','test']:
-        images_path = os.getcwd()+f"/mnist_{file}"
-        labels_txt = os.getcwd()+f"/mnist_{file}.txt"
+        images_path = f"dataset/mnist_{file}"
+        labels_txt = f"dataset/mnist_{file}.txt"
         
         if file == 'train': 
             images_num = TRAIN_IMAGES_NUM
@@ -85,9 +92,8 @@ def main():
         with open(labels_txt, "w") as f:
             image_num = 0
             while image_num < images_num:
-                image_path = os.path.realpath(os.path.join(
-                    images_path, "%06d.jpg"%(image_num+1)))
-                #print(image_path)
+                image_path = f"dataset/mnist_{file}/{image_num+1:06d}.jpg"
+                # print(image_path)
                 annotation = image_path
                 outputs = np.ones(shape=[SIZE, SIZE, 3]) * 255
                 bboxes = [[0,0,1,1]]
@@ -105,11 +111,7 @@ def main():
 
                 if bboxes_num == 0: continue
                 cv2.imwrite(image_path, data[0]) # 한글경로에 저장 안됨
-    #             cv2.imshow("image", data[0])
-    #             cv2.waitKey()
-    #             cv2.destroyAllWindows()
-    #             break
-    #             print(image_path, data[0].shape)
+
                 for i in range(len(labels)):
                     if i == 0: continue
                     xmin = str(bboxes[i][0])
